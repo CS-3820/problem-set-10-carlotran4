@@ -263,6 +263,11 @@ smallStep (Throw e, acc) = do
   (e', acc') <- smallStep (e, acc)
   return (Throw e', acc')
 
+smallStep (Catch (App (Lam x (Throw e)) v) y h, acc) 
+  | isValue v = Just (Catch (Throw (subst x v e)) y h, acc)
+smallStep (Catch (App (Lam x (Throw e)) v) y h, acc) = do
+  (v', acc') <- smallStep (v, acc)
+  return (Catch (App (Lam x (Throw e)) v') y h, acc')
 smallStep (Catch (Throw v) x h, acc) = Just (subst x v h, acc)
 smallStep (Catch e x h, acc)
   | isValue e = Just (e, acc)
