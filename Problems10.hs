@@ -42,23 +42,23 @@ data Expr = -- Arithmetic
           | Throw Expr | Catch Expr String Expr
   deriving Eq
 
--- deriving instance Show Expr
+deriving instance Show Expr
 
 -- Here's a show instance that tries to be a little more readable than the
 -- default Haskell one; feel free to uncomment it (but then, be sure to comment
 -- out the `deriving instance` line above).
 
 
-instance Show Expr where
-  showsPrec _ (Const i) = shows i
-  showsPrec i (Plus m n) = showParen (i > 1) $ showsPrec 2 m . showString " + " . showsPrec 2 n
-  showsPrec i (Var x) = showString x
-  showsPrec i (Lam x m) = showParen (i > 0) $ showString "\\" . showString x . showString " . " . showsPrec 0 m
-  showsPrec i (App m n) = showParen (i > 2) $ showsPrec 2 m . showChar ' ' . showsPrec 3 n
-  showsPrec i (Store m) = showParen (i > 2) $ showString "store " . showsPrec 3 m
-  showsPrec i Recall    = showString "recall"
-  showsPrec i (Throw m) = showParen (i > 2) $ showString "throw " . showsPrec 3 m
-  showsPrec i (Catch m y n) = showParen (i > 0) $ showString "try " . showsPrec 0 m . showString " catch " . showString y . showString " -> " . showsPrec 0 n
+-- instance Show Expr where
+--   showsPrec _ (Const i) = shows i
+--   showsPrec i (Plus m n) = showParen (i > 1) $ showsPrec 2 m . showString " + " . showsPrec 2 n
+--   showsPrec i (Var x) = showString x
+--   showsPrec i (Lam x m) = showParen (i > 0) $ showString "\\" . showString x . showString " . " . showsPrec 0 m
+--   showsPrec i (App m n) = showParen (i > 2) $ showsPrec 2 m . showChar ' ' . showsPrec 3 n
+--   showsPrec i (Store m) = showParen (i > 2) $ showString "store " . showsPrec 3 m
+--   showsPrec i Recall    = showString "recall"
+--   showsPrec i (Throw m) = showParen (i > 2) $ showString "throw " . showsPrec 3 m
+--   showsPrec i (Catch m y n) = showParen (i > 0) $ showString "try " . showsPrec 0 m . showString " catch " . showString y . showString " -> " . showsPrec 0 n
 
 
 -- Values are, as usual, integer and function constants
@@ -240,9 +240,14 @@ smallStep (Store x, acc) = do
 
 smallStep (Lam x y, acc) = Nothing
 
+smallStep (App (App (Lam s (Lam s1 (Var s2))) e1) e2,acc)
+  | s == s2 && isThrow e1 = Just (App e1 e2,acc)
+  | isThrow e2 = Just (App (Lam s1 e1) e2,acc)
 
+
+smallStep (App (App (Lam x body) v1) v, acc) = Just (App (subst x v1 body) v, acc)
 smallStep (App (Lam x body) v, acc) | isValue v = Just (subst x v body, acc)
-smallStep (App f arg, acc) | isValue f && not (isThrow f) && not (isThrow arg)= do
+smallStep (App f arg, acc) | isValue f && not (isThrow f) && not (isThrow arg) = do
   (arg', acc') <- smallStep (arg, acc)
   return (App f arg', acc')
 smallStep (App f arg, acc) | not (isThrow f) && not (isThrow arg)= do
@@ -257,7 +262,6 @@ smallStep (Throw (Throw e), acc) = Just (Throw e, acc)
 smallStep (Throw e, acc) = do
   (e', acc') <- smallStep (e, acc)
   return (Throw e', acc')
-
 
 smallStep (Catch (Throw v) x h, acc) = Just (subst x v h, acc)
 smallStep (Catch e x h, acc)
