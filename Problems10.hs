@@ -208,15 +208,19 @@ bubble; this won't *just* be `Throw` and `Catch.
 
 -------------------------------------------------------------------------------}
 
+isThrow :: Expr -> Bool
+isThrow (Throw e) = True
+isThrow _ = False
+
 smallStep :: (Expr, Expr) -> Maybe (Expr, Expr)
 smallStep (Const x, Const y) = Nothing
 
 smallStep (Plus (Const x) (Const y), acc) = Just (Const (x + y), acc)
 smallStep (Plus x y, acc)
-  | not (isValue x) = do
+  | not (isValue x) && not (isThrow x) && not (isThrow y) = do
       (x', acc') <- smallStep (x, acc)
       return (Plus x' y, acc')
-  | not (isValue y) = do 
+  | not (isValue y) && not (isThrow x) && not (isThrow y) = do 
       (y', acc') <- smallStep (y, acc)
       return (Plus x y', acc')
   
@@ -228,6 +232,7 @@ smallStep (Recall, Const x) = Just (Const x, Const x)
 
 
 smallStep (Store (Const x), Const y) = Just(Const x, Const x)
+smallStep (Store (Throw (Const x)), acc) = Just(Throw (Const x), acc)
 smallStep (Store x, acc) = do
   (x', acc') <- smallStep (x, acc)
   return (Store x', acc')
@@ -248,6 +253,7 @@ smallStep (App f arg, acc) = do
 
 
 smallStep (Throw v, acc) | isValue v = Nothing
+smallStep (Throw (Throw e), acc) = Just (Throw e, acc)
 smallStep (Throw e, acc) = do
   (e', acc') <- smallStep (e, acc)
   return (Throw e', acc')
@@ -263,6 +269,7 @@ smallStep (Catch e x h, acc)
 
 
 steps :: (Expr, Expr) -> [(Expr, Expr)]
+
 steps s = case smallStep s of
             Nothing -> [s]
             Just s' -> s : steps s'
